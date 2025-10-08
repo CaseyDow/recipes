@@ -2,52 +2,288 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recipe Finder</title>
 <style>
-   * { font-family: sans-serif; }
-   body { padding: 20px; }
-   #results { margin-top: 1em; max-height: 300px; overflow-y: auto; }
-   .recipe-item { cursor: pointer; margin: 5px 0; padding: 5px; border-bottom: 1px solid #ccc; }
-   .recipe-item:hover { background: #f0f0f0; }
-   #ingredients { margin-top: 1em; }
-   table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
-   th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
-   th { background: #f8f8f8; }
-   .subtitle { font-weight: bold; background: #eee; }
-   .subrecipe { margin-left: 20px; border-left: 3px solid #ccc; padding-left: 10px; }
-   .subrecipe-header { cursor: pointer; font-weight: bold; color: #007bff; }
-   .subrecipe-content { display: none; }
-   .subrecipe-content.expanded { display: block; }
+   :root {
+      --ucla-blue: #2774AE;
+      --light-gray: #f7f9fb;
+      --medium-gray: #d9e2ec;
+      --dark-gray: #3a3a3a;
+   }
+
+   * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+   }
+
+   body {
+      background: var(--light-gray);
+      color: var(--dark-gray);
+      margin: 0;
+      padding: 0;
+   }
+
+   header {
+      background: var(--ucla-blue);
+      color: white;
+      padding: 1.2rem;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+   }
+
+   header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: 0.3px;
+   }
+
+   main {
+      max-width: 900px;
+      margin: 1.5rem auto;
+      background: white;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+   }
+
+   #search {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 1rem;
+      border: 1px solid var(--medium-gray);
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+   }
+
+   #search:focus {
+      border-color: var(--ucla-blue);
+      box-shadow: 0 0 4px rgba(39,116,174,0.3);
+   }
+
+   #toggle-weight {
+      margin-top: 12px;
+      padding: 12px 16px;
+      width: 100%;
+      background: var(--ucla-blue);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: background 0.2s, transform 0.1s;
+   }
+
+   #toggle-weight:hover {
+      background: #1b5d8b;
+      transform: translateY(-1px);
+   }
+
+   #results {
+      margin-top: 1.5rem;
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid var(--medium-gray);
+      border-radius: 8px;
+      background: #fff;
+      -webkit-overflow-scrolling: touch;
+   }
+
+   .recipe-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--medium-gray);
+      cursor: pointer;
+      transition: background 0.2s;
+   }
+
+   .recipe-item:last-child {
+      border-bottom: none;
+   }
+
+   .recipe-item:hover {
+      background: var(--light-gray);
+   }
+
+   #ingredients {
+      margin-top: 2rem;
+   }
+
+   h2 {
+      color: var(--ucla-blue);
+      margin-top: 0.5rem;
+      font-size: 1.4rem;
+   }
+
+   h3 {
+      color: var(--ucla-blue);
+      margin-top: 1.5rem;
+      border-bottom: 2px solid var(--ucla-blue);
+      display: inline-block;
+      padding-bottom: 4px;
+   }
+
+   table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 0.5rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+   }
+
+   th, td {
+      border-bottom: 1px solid var(--medium-gray);
+      padding: 10px;
+      text-align: left;
+      font-size: 0.95rem;
+   }
+
+   th {
+      background: var(--ucla-blue);
+      color: white;
+      font-weight: 600;
+   }
+
+   tr {
+      background: var(--light-gray);
+   }
+
+   pre {
+      background: #f4f6f8;
+      padding: 10px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+   }
+
+   .subrecipe-row td {
+      background: #f9fbfd;
+      padding: 0.5rem 1rem;
+   }
+
+   .subrecipe {
+      width: 100%;
+      margin: 0;
+      border-left: 3px solid var(--ucla-blue);
+      padding: 10px;
+      background: #ffffff;
+      border-radius: 6px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.05);
+   }
+
+   .subrecipe-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-weight: 600;
+      padding: 4px 0;
+      color: var(--ucla-blue);
+   }
+
+   .subrecipe-toggle {
+      background: none;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      color: var(--ucla-blue);
+   }
+
+   .subrecipe-content {
+      display: none;
+   }
+
+   .subrecipe-content.expanded {
+      display: block;
+   }
+
+   footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: #666;
+      font-size: 0.9rem;
+   }
+
+   /* --- MOBILE ADAPTATION --- */
+   @media (max-width: 600px) {
+      main {
+         margin: 1rem;
+         padding: 1rem;
+      }
+
+      header h1 {
+         font-size: 1.3rem;
+      }
+
+      #toggle-weight {
+         font-size: 0.95rem;
+      }
+
+      th, td {
+         font-size: 0.85rem;
+         padding: 8px;
+      }
+
+      #results {
+         max-height: 200px;
+      }
+
+      h2 {
+         font-size: 1.2rem;
+      }
+   }
 </style>
 </head>
 <body>
 
-<h1>Recipe Finder</h1>
-<input id="search" placeholder="Search recipes..." style="width:100%;padding:8px;font-size:1em;" />
-<div id="results"></div>
-<div id="ingredients"></div>
+<header>
+   <h1>UCLA Recipe Finder</h1>
+</header>
+
+<main>
+   <input id="search" placeholder="Search recipes..." />
+   <button id="toggle-weight">Use Weights</button>
+
+   <div id="results"></div>
+   <div id="ingredients"></div>
+</main>
+
+<footer>
+   © 2025 Casey Dow · Recipe Finder
+</footer>
 
 <script>
 let recipes = [];
+let useWeight = false;
+let currentRecipeFile = null;
 
-// Load the mapping JSON
 fetch("./recipes_mapping.json")
    .then(r => r.json())
-   .then(data => {
-      recipes = data;
-   });
+   .then(data => { recipes = data; });
 
 const searchInput = document.getElementById("search");
 const resultsDiv = document.getElementById("results");
 const ingredientsDiv = document.getElementById("ingredients");
+const toggleBtn = document.getElementById("toggle-weight");
+
+toggleBtn.addEventListener("click", async () => {
+   useWeight = !useWeight;
+   toggleBtn.textContent = useWeight ? "Use Volume" : "Use Weights";
+   if (currentRecipeFile) await loadRecipe(currentRecipeFile);
+});
 
 searchInput.addEventListener("input", () => {
    const q = searchInput.value.toLowerCase();
    resultsDiv.innerHTML = "";
-
    const filtered = recipes.filter(r =>
       fuzzyMatch(r.recipeName || "", q) ||
-      fuzzyMatch(r.en || "", q)
+      fuzzyMatch(r.en || "", q) ||
+      r.filename.startsWith(`ucla_recipes/${q}`)
    );
 
    filtered.forEach(r => {
@@ -62,73 +298,81 @@ searchInput.addEventListener("input", () => {
 function fuzzyMatch(str, query) {
    str = str.toLowerCase();
    query = query.toLowerCase();
-   // Match if query is contained or if characters appear in order (simple fuzziness)
    let i = 0;
    for (const c of str) {
       if (c === query[i]) i++;
       if (i === query.length) return true;
    }
-   return query.length === 0; // empty query matches everything
+   return query.length === 0;
 }
 
 async function loadRecipe(filename) {
+   currentRecipeFile = filename;
    ingredientsDiv.innerHTML = "<p>Loading recipe...</p>";
    try {
       const res = await fetch(filename);
       const data = await res.json();
-      const html = await renderRecipe(data, new Set());
+      const html = await renderRecipe(data);
       ingredientsDiv.innerHTML = html;
    } catch (e) {
       ingredientsDiv.innerHTML = `<p style='color:red;'>Error loading ${filename}: ${e}</p>`;
    }
 }
 
-async function renderRecipe(recipe, seen) {
-   if (seen.has(recipe.recipeId)) {
-      return `<p style="color:red;">(recursive subrecipe skipped)</p>`;
-   }
-   seen.add(recipe.recipeId);
-
+async function renderRecipe(recipe) {
    const rows = recipe.recipeIngredientRows || [];
    const methods = recipe.recipeMethods || [];
    let html = `<h2>${recipe.recipeNameTranslations?.EN || recipe.recipeName}</h2>`;
-
-   // Ingredients Table
    html += `<h3>Ingredients</h3>`;
    html += `<table><tr><th>Ingredient</th><th>Amount</th></tr>`;
 
    for (const row of rows) {
+      const name = row.ingredientNameTranslations?.EN || row.ingredientName;
+      let amount = "";
+      if (!useWeight && row.ingredientAmountFormatted) {
+         amount = row.ingredientAmountFormatted;
+      } else if (!useWeight && row.capacityMeasureAmount && row.capacityMeasureUnit) {
+         amount = `${row.capacityMeasureAmount} ${row.capacityMeasureUnit}`;
+      } else if (row.ingredientAmount && row.ingredientAmountUnit) {
+         amount = `${row.ingredientAmount} ${row.ingredientAmountUnit}`;
+      }
+
       if (row.isSubrecipe && row.subrecipeId) {
-         const name = row.ingredientNameTranslations?.EN || row.ingredientName;
-         const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
-         
-         // Start of collapsible subrecipe content
-         html += `<tr><td class="subrecipe-row">`;
-         html += `<div class="subrecipe-header" onclick="toggleSubrecipe(this)">${name} (Subrecipe) <span>▶</span></div>`;
-         html += `<div class="subrecipe-content">`;
-         
+         html += `
+<tr>
+  <td>
+    <div class="subrecipe-header" onclick="toggleSubrecipe(this)">
+      ${name} (Subrecipe)
+      <button class="subrecipe-toggle">▶</button>
+    </div>
+  </td>
+  <td>${amount}</td>
+</tr>
+<tr class="subrecipe-row" style="display:none;">
+  <td colspan="2">
+`;
+
          const subFile = `ucla_recipes/${row.subrecipeId}.json`;
          try {
             const res = await fetch(subFile);
             const sub = await res.json();
-            const subHtml = await renderRecipe(sub, seen);
+            const subHtml = await renderRecipe(sub);
             html += `<div class="subrecipe">${subHtml}</div>`;
          } catch (e) {
             html += `<div class="subrecipe"><em>Could not load subrecipe ${row.subrecipeId}</em></div>`;
          }
 
-         // End of collapsible subrecipe content
-         html += `</div>`;
-         html += `</td><td>${amount}</td></tr>`;
-      } else {
-         const name = row.ingredientNameTranslations?.EN || row.ingredientName;
-         const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
+         html += `
+  </td>
+</tr>
+         `;
+      } else if (!name.startsWith("Assembly")) {
          html += `<tr><td>${name}</td><td>${amount}</td></tr>`;
       }
    }
+
    html += `</table>`;
 
-   // Instructions
    if (methods.length) {
       html += `<h3>Instructions</h3>`;
       methods.forEach(m => {
@@ -141,18 +385,16 @@ async function renderRecipe(recipe, seen) {
 }
 
 function toggleSubrecipe(header) {
-   const content = header.nextElementSibling;
-   const arrow = header.querySelector('span');
+   const row = header.closest("tr");
+   const nextRow = row.nextElementSibling;
+   const button = header.querySelector(".subrecipe-toggle");
 
-   if (content.classList.contains('expanded')) {
-      content.classList.remove('expanded');
-      arrow.textContent = '▶';
-   } else {
-      content.classList.add('expanded');
-      arrow.textContent = '▼';
-   }
+   if (!nextRow || !nextRow.classList.contains("subrecipe-row")) return;
+
+   const expanded = nextRow.style.display === "table-row";
+   nextRow.style.display = expanded ? "none" : "table-row";
+   button.textContent = expanded ? "▶" : "▼";
 }
 </script>
-
 </body>
 </html>
