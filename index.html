@@ -4,17 +4,20 @@
 <meta charset="UTF-8">
 <title>Recipe Finder</title>
 <style>
-  * { font-family: sans-serif; }
-  body { padding: 20px; }
-  #results { margin-top: 1em; max-height: 300px; overflow-y: auto; }
-  .recipe-item { cursor: pointer; margin: 5px 0; padding: 5px; border-bottom: 1px solid #ccc; }
-  .recipe-item:hover { background: #f0f0f0; }
-  #ingredients { margin-top: 1em; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
-  th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
-  th { background: #f8f8f8; }
-  .subtitle { font-weight: bold; background: #eee; }
-  .subrecipe { margin-left: 20px; border-left: 3px solid #ccc; padding-left: 10px; }
+   * { font-family: sans-serif; }
+   body { padding: 20px; }
+   #results { margin-top: 1em; max-height: 300px; overflow-y: auto; }
+   .recipe-item { cursor: pointer; margin: 5px 0; padding: 5px; border-bottom: 1px solid #ccc; }
+   .recipe-item:hover { background: #f0f0f0; }
+   #ingredients { margin-top: 1em; }
+   table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+   th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+   th { background: #f8f8f8; }
+   .subtitle { font-weight: bold; background: #eee; }
+   .subrecipe { margin-left: 20px; border-left: 3px solid #ccc; padding-left: 10px; }
+   .subrecipe-header { cursor: pointer; font-weight: bold; color: #007bff; }
+   .subrecipe-content { display: none; }
+   .subrecipe-content.expanded { display: block; }
 </style>
 </head>
 <body>
@@ -29,108 +32,126 @@ let recipes = [];
 
 // Load the mapping JSON
 fetch("./recipes_mapping.json")
-  .then(r => r.json())
-  .then(data => {
-    recipes = data;
-  });
+   .then(r => r.json())
+   .then(data => {
+      recipes = data;
+   });
 
 const searchInput = document.getElementById("search");
 const resultsDiv = document.getElementById("results");
 const ingredientsDiv = document.getElementById("ingredients");
 
 searchInput.addEventListener("input", () => {
-  const q = searchInput.value.toLowerCase();
-  resultsDiv.innerHTML = "";
+   const q = searchInput.value.toLowerCase();
+   resultsDiv.innerHTML = "";
 
-  const filtered = recipes.filter(r =>
-    fuzzyMatch(r.recipeName || "", q) ||
-    fuzzyMatch(r.en || "", q)
-  );
+   const filtered = recipes.filter(r =>
+      fuzzyMatch(r.recipeName || "", q) ||
+      fuzzyMatch(r.en || "", q)
+   );
 
-  filtered.forEach(r => {
-    const div = document.createElement("div");
-    div.className = "recipe-item";
-    div.textContent = r.en || r.recipeName || "Unnamed Recipe";
-    div.onclick = () => loadRecipe(r.filename);
-    resultsDiv.appendChild(div);
-  });
+   filtered.forEach(r => {
+      const div = document.createElement("div");
+      div.className = "recipe-item";
+      div.textContent = r.en || r.recipeName || "Unnamed Recipe";
+      div.onclick = () => loadRecipe(r.filename);
+      resultsDiv.appendChild(div);
+   });
 });
 
 function fuzzyMatch(str, query) {
-  str = str.toLowerCase();
-  query = query.toLowerCase();
-  // Match if query is contained or if characters appear in order (simple fuzziness)
-  let i = 0;
-  for (const c of str) {
-    if (c === query[i]) i++;
-    if (i === query.length) return true;
-  }
-  return query.length === 0; // empty query matches everything
+   str = str.toLowerCase();
+   query = query.toLowerCase();
+   // Match if query is contained or if characters appear in order (simple fuzziness)
+   let i = 0;
+   for (const c of str) {
+      if (c === query[i]) i++;
+      if (i === query.length) return true;
+   }
+   return query.length === 0; // empty query matches everything
 }
 
 async function loadRecipe(filename) {
-  ingredientsDiv.innerHTML = "<p>Loading recipe...</p>";
-  try {
-    const res = await fetch(filename);
-    const data = await res.json();
-    const html = await renderRecipe(data, new Set());
-    ingredientsDiv.innerHTML = html;
-  } catch (e) {
-    ingredientsDiv.innerHTML = `<p style='color:red;'>Error loading ${filename}: ${e}</p>`;
-  }
+   ingredientsDiv.innerHTML = "<p>Loading recipe...</p>";
+   try {
+      const res = await fetch(filename);
+      const data = await res.json();
+      const html = await renderRecipe(data, new Set());
+      ingredientsDiv.innerHTML = html;
+   } catch (e) {
+      ingredientsDiv.innerHTML = `<p style='color:red;'>Error loading ${filename}: ${e}</p>`;
+   }
 }
 
 async function renderRecipe(recipe, seen) {
-  if (seen.has(recipe.recipeId)) {
-    return `<p style="color:red;">(recursive subrecipe skipped)</p>`;
-  }
-  seen.add(recipe.recipeId);
+   if (seen.has(recipe.recipeId)) {
+      return `<p style="color:red;">(recursive subrecipe skipped)</p>`;
+   }
+   seen.add(recipe.recipeId);
 
-  const rows = recipe.recipeIngredientRows || [];
-  const methods = recipe.recipeMethods || [];
-  let html = `<h2>${recipe.recipeNameTranslations?.EN || recipe.recipeName}</h2>`;
+   const rows = recipe.recipeIngredientRows || [];
+   const methods = recipe.recipeMethods || [];
+   let html = `<h2>${recipe.recipeNameTranslations?.EN || recipe.recipeName}</h2>`;
 
-  // Ingredients Table
-  html += `<h3>Ingredients</h3>`;
-  html += `<table><tr><th>Ingredient</th><th>Amount</th></tr>`;
+   // Ingredients Table
+   html += `<h3>Ingredients</h3>`;
+   html += `<table><tr><th>Ingredient</th><th>Amount</th></tr>`;
 
-  for (const row of rows) {
-    if (!row.isSubTitle) { // Skip Assembly/subtitles
+   for (const row of rows) {
       if (row.isSubrecipe && row.subrecipeId) {
-        const name = row.ingredientNameTranslations?.EN || row.ingredientName;
-        const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
-        html += `<tr><td>${name}</td><td>${amount}</td></tr>`;
-        const subFile = `ucla_recipes/${row.subrecipeId}.json`;
-        try {
-          const res = await fetch(subFile);
-          const sub = await res.json();
-          const subHtml = await renderRecipe(sub, seen);
-          html += `<tr><td colspan="2" class="subrecipe">${subHtml}</td></tr>`;
-        } catch (e) {
-          html += `<tr><td colspan="2" class="subrecipe"><em>Could not load subrecipe ${row.subrecipeId}</em></td></tr>`;
-        }
+         const name = row.ingredientNameTranslations?.EN || row.ingredientName;
+         const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
+         
+         // Start of collapsible subrecipe content
+         html += `<tr><td class="subrecipe-row">`;
+         html += `<div class="subrecipe-header" onclick="toggleSubrecipe(this)">${name} (Subrecipe) <span>▶</span></div>`;
+         html += `<div class="subrecipe-content">`;
+         
+         const subFile = `ucla_recipes/${row.subrecipeId}.json`;
+         try {
+            const res = await fetch(subFile);
+            const sub = await res.json();
+            const subHtml = await renderRecipe(sub, seen);
+            html += `<div class="subrecipe">${subHtml}</div>`;
+         } catch (e) {
+            html += `<div class="subrecipe"><em>Could not load subrecipe ${row.subrecipeId}</em></div>`;
+         }
+
+         // End of collapsible subrecipe content
+         html += `</div>`;
+         html += `</td><td>${amount}</td></tr>`;
       } else {
-        const name = row.ingredientNameTranslations?.EN || row.ingredientName;
-        const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
-        html += `<tr><td>${name}</td><td>${amount}</td></tr>`;
+         const name = row.ingredientNameTranslations?.EN || row.ingredientName;
+         const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
+         html += `<tr><td>${name}</td><td>${amount}</td></tr>`;
       }
-    }
-  }
-  html += `</table>`;
+   }
+   html += `</table>`;
 
-  // Instructions
-  if (methods.length) {
-    html += `<h3>Instructions</h3>`;
-    methods.forEach(m => {
-      const heading = m.stepHeading ? `<strong>${m.stepHeading}</strong><br>` : "";
-      html += `<p>${heading}<pre>${m.stepInstructions}</pre></p>`;
-    });
-  }
+   // Instructions
+   if (methods.length) {
+      html += `<h3>Instructions</h3>`;
+      methods.forEach(m => {
+         const heading = m.stepHeading ? `<strong>${m.stepHeading}</strong><br>` : "";
+         html += `<p>${heading}<pre>${m.stepInstructions}</pre></p>`;
+      });
+   }
 
-  return html;
+   return html;
 }
 
+function toggleSubrecipe(header) {
+   const content = header.nextElementSibling;
+   const arrow = header.querySelector('span');
 
+   if (content.classList.contains('expanded')) {
+      content.classList.remove('expanded');
+      arrow.textContent = '▶';
+   } else {
+      content.classList.add('expanded');
+      arrow.textContent = '▼';
+   }
+}
 </script>
 
 </body>
