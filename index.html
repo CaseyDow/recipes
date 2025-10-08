@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Recipe Finder</title>
+<style>
+  * { font-family: sans-serif; }
+  body { padding: 20px; }
+  #results { margin-top: 1em; max-height: 300px; overflow-y: auto; }
+  .recipe-item { cursor: pointer; margin: 5px 0; padding: 5px; border-bottom: 1px solid #ccc; }
+  .recipe-item:hover { background: #f0f0f0; }
+  #ingredients { margin-top: 1em; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+  th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+  th { background: #f8f8f8; }
+  .subtitle { font-weight: bold; background: #eee; }
+  .subrecipe { margin-left: 20px; border-left: 3px solid #ccc; padding-left: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Recipe Finder</h1>
+<input id="search" placeholder="Search recipes..." style="width:100%;padding:8px;font-size:1em;" />
+<div id="results"></div>
+<div id="ingredients"></div>
+
+<script>
+let recipes = [];
+
+// Load the mapping JSON
+fetch("./recipes_mapping.json")
+  .then(r => r.json())
+  .then(data => {
+    recipes = data;
+  });
+
+const searchInput = document.getElementById("search");
+const resultsDiv = document.getElementById("results");
+const ingredientsDiv = document.getElementById("ingredients");
+
+searchInput.addEventListener("input", () => {
+  const q = searchInput.value.toLowerCase();
+  resultsDiv.innerHTML = "";
+
+  const filtered = recipes.filter(r =>
+    fuzzyMatch(r.recipeName || "", q) ||
+    fuzzyMatch(r.en || "", q)
+  );
+
+  filtered.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "recipe-item";
+    div.textContent = r.en || r.recipeName || "Unnamed Recipe";
+    div.onclick = () => loadRecipe(r.filename);
+    resultsDiv.appendChild(div);
+  });
+});
+
+function fuzzyMatch(str, query) {
+  str = str.toLowerCase();
+  query = query.toLowerCase();
+  // Match if query is contained or if characters appear in order (simple fuzziness)
+  let i = 0;
+  for (const c of str) {
+    if (c === query[i]) i++;
+    if (i === query.length) return true;
+  }
+  return query.length === 0; // empty query matches everything
+}
+
+async function loadRecipe(filename) {
+  ingredientsDiv.innerHTML = "<p>Loading recipe...</p>";
+  try {
+    const res = await fetch(filename);
+    const data = await res.json();
+    const html = await renderRecipe(data, new Set());
+    ingredientsDiv.innerHTML = html;
+  } catch (e) {
+    ingredientsDiv.innerHTML = `<p style='color:red;'>Error loading ${filename}: ${e}</p>`;
+  }
+}
+
+async function renderRecipe(recipe, seen) {
+  if (seen.has(recipe.recipeId)) {
+    return `<p style="color:red;">(recursive subrecipe skipped)</p>`;
+  }
+  seen.add(recipe.recipeId);
+
+  const rows = recipe.recipeIngredientRows || [];
+  const methods = recipe.recipeMethods || [];
+  let html = `<h2>${recipe.recipeNameTranslations?.EN || recipe.recipeName}</h2>`;
+
+  // Ingredients Table
+  html += `<h3>Ingredients</h3>`;
+  html += `<table><tr><th>Ingredient</th><th>Amount</th></tr>`;
+
+  for (const row of rows) {
+    if (!row.isSubTitle) { // Skip Assembly/subtitles
+      if (row.isSubrecipe && row.subrecipeId) {
+        const name = row.ingredientNameTranslations?.EN || row.ingredientName;
+        const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
+        html += `<tr><td>${name}</td><td>${amount}</td></tr>`;
+        const subFile = `ucla_recipes/${row.subrecipeId}.json`;
+        try {
+          const res = await fetch(subFile);
+          const sub = await res.json();
+          const subHtml = await renderRecipe(sub, seen);
+          html += `<tr><td colspan="2" class="subrecipe">${subHtml}</td></tr>`;
+        } catch (e) {
+          html += `<tr><td colspan="2" class="subrecipe"><em>Could not load subrecipe ${row.subrecipeId}</em></td></tr>`;
+        }
+      } else {
+        const name = row.ingredientNameTranslations?.EN || row.ingredientName;
+        const amount = row.ingredientAmountFormatted || (row.ingredientAmount + " " + row.ingredientAmountUnit) || "";
+        html += `<tr><td>${name}</td><td>${amount}</td></tr>`;
+      }
+    }
+  }
+  html += `</table>`;
+
+  // Instructions
+  if (methods.length) {
+    html += `<h3>Instructions</h3>`;
+    methods.forEach(m => {
+      const heading = m.stepHeading ? `<strong>${m.stepHeading}</strong><br>` : "";
+      html += `<p>${heading}<pre>${m.stepInstructions}</pre></p>`;
+    });
+  }
+
+  return html;
+}
+
+
+</script>
+
+</body>
+</html>
